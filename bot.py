@@ -4,19 +4,18 @@ import random
 from bs4 import BeautifulSoup
 import schedule
 import time
+import os
 
 # ==========================
 # إعدادات البوت
 # ==========================
-import os
-
 TOKEN = os.environ.get("BOT_TOKEN")
-CHANNEL = int(os.environ.get("CHANNEL_ID"))
+CHANNEL = os.environ.get("CHANNEL_ID")  # لازم يكون @darkthu9hts
 
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================
-# جلب اقتباس إنجليزي من Quotable API
+# جلب اقتباس إنجليزي
 # ==========================
 def get_english_quote():
     try:
@@ -24,78 +23,81 @@ def get_english_quote():
         data = response.json()
         text = data.get("content", "")
         author = data.get("author", "")
-        return f"{text} — {author}"
+        return f"{text}\n— {author}"
     except:
         return "Dark thoughts never fade… 🖤"
 
 # ==========================
-# جلب اقتباس عربي من موقع حكمة
+# جلب اقتباسات عربية
 # ==========================
-def get_arabic_quotes_from_hekmah():
-    try:
-        url = "https://hekmah.online/"
-        res = requests.get(url)
-        soup = BeautifulSoup(res.text, "html.parser")
-        quotes = [q.text.strip() for q in soup.select(".quote-text") if q.text.strip()]
-        return quotes
-    except:
-        return []
+def get_arabic_quotes():
+    quotes = []
 
-# ==========================
-# جلب اقتباس عربي من موقع اقتباسات أخرى
-# ==========================
-def get_arabic_quotes_from_ekhtaboot():
+    # من موقع حكمة
     try:
-        url = "https://www.ekhtaboot.com/ar/quotes"
-        res = requests.get(url)
+        res = requests.get("https://hekmah.online/")
         soup = BeautifulSoup(res.text, "html.parser")
-        quotes = [q.text.strip() for q in soup.select(".quote") if q.text.strip()]
-        return quotes
+        quotes += [q.text.strip() for q in soup.select(".quote-text") if q.text.strip()]
     except:
-        return []
+        pass
 
-# ==========================
-# اختيار اقتباس عربي عشوائي
-# ==========================
-def get_arabic_quote():
-    quotes = get_arabic_quotes_from_hekmah() + get_arabic_quotes_from_ekhtaboot()
+    # من موقع آخر
+    try:
+        res = requests.get("https://www.ekhtaboot.com/ar/quotes")
+        soup = BeautifulSoup(res.text, "html.parser")
+        quotes += [q.text.strip() for q in soup.select(".quote") if q.text.strip()]
+    except:
+        pass
+
     if quotes:
         return random.choice(quotes)
     else:
         return "الأفكار الداكنة تعكس العمق الداخلي… 🌑"
 
 # ==========================
-# إضافة إيموجيات عشوائية
+# إضافة إيموجيات
 # ==========================
 def add_emoji(text):
     emojis = ["🖤","🌑","💀","🔥","🌫️","🕷️"]
     return random.choice(emojis) + " " + text
 
 # ==========================
-# نشر الاقتباسات على القناة
+# تنسيق المنشور
+# ==========================
+def format_post():
+    eng = get_english_quote()
+    ara = get_arabic_quotes()
+
+    post = f"""
+🖤 Dark Thoughts
+
+{add_emoji(eng)}
+
+{add_emoji(ara)}
+
+🌑 @darkthu9hts
+"""
+    return post
+
+# ==========================
+# النشر
 # ==========================
 def post_quotes():
-    eng = get_english_quote()
-    ara = get_arabic_quote()
     try:
-        bot.send_message(CHANNEL, add_emoji(eng))
-        bot.send_message(CHANNEL, add_emoji(ara))
-        print("تم النشر على القناة!")
+        bot.send_message(CHANNEL, format_post())
+        print("✅ تم النشر في القناة!")
     except Exception as e:
-        print(f"خطأ عند النشر: {e}")
+        print(f"❌ خطأ: {e}")
 
 # ==========================
-# جدولة النشر
+# الجدولة (كل 30 دقيقة)
 # ==========================
-schedule.every(1).hours.do(post_quotes)  # كل ساعة
-# يمكن تعديل الجدولة:
-# schedule.every(2).hours.do(post_quotes)  # كل ساعتين
-# schedule.every().day.at("10:00").do(post_quotes)  # يوميًا الساعة 10 صباحًا
+schedule.every(30).minutes.do(post_quotes)
 
 # ==========================
-# تشغيل البوت
+# التشغيل
 # ==========================
-print("بوت Dark Thoughts يعمل الآن…")
+print("🚀 Bot is running...")
 
 post_quotes()  # نشر فوري عند التشغيل
 
