@@ -8,8 +8,10 @@ import time
 # ==========================
 # إعدادات البوت
 # ==========================
-TOKEN = "8698802860:AAGxSD_xiSBp6s2yzLE4dG4o-BY7whX9uK4"  # ضع توكن البوت هنا مباشرة
-CHANNEL = 7378751139  # معرف القناة (Chat ID)
+import os
+
+TOKEN = os.environ.get("BOT_TOKEN")
+CHANNEL = int(os.environ.get("CHANNEL_ID"))
 
 bot = telebot.TeleBot(TOKEN)
 
