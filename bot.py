@@ -1,100 +1,85 @@
 import telebot
 import feedparser
-import schedule
-import time
-import os
+import requests
 import json
+import os
 import random
 
 # ==========================
-# إعدادات البوت
-# ==========================
 TOKEN = os.environ.get("BOT_TOKEN")
-CHANNEL = int(os.environ.get("CHANNEL_ID"))
-
+CHANNEL = os.environ.get("CHANNEL_ID")  # يمكن أن يكون @channel_name أو Chat ID
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================
-# RSS الأخبار
-# ==========================
 RSS_FEEDS = [
-    "http://feeds.bbci.co.uk/news/rss.xml",
-    "http://rss.cnn.com/rss/edition.rss",
-    "https://www.aljazeera.com/xml/rss/all.xml"
+    "https://www.aljazeera.net/aljazeera/ar/feeds/all.xml",
+    "https://feeds.bbci.co.uk/arabic/rss.xml"
 ]
 
-# ==========================
-# التخزين لتجنب التكرار
-# ==========================
 DATA_FILE = "posted.json"
 
-def load_data():
+# ==========================
+def load_posted():
     try:
         with open(DATA_FILE, "r") as f:
             return json.load(f)
     except:
         return []
 
-def save_data(data):
+def save_posted(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
 
-posted = load_data()
+posted = load_posted()
 
-# ==========================
-# اختيار إيموجي جذاب
 # ==========================
 def add_emoji():
-    emojis = ["🔥","⚡","🧠","🌍","🚨"]
-    return random.choice(emojis)
+    return random.choice(["🌍","📰","🔥","⚡","🧠"])
 
 # ==========================
-# جلب الأخبار
-# ==========================
-def get_news():
-    news = []
-    for feed in RSS_FEEDS:
-        parsed = feedparser.parse(feed)
-        for entry in parsed.entries[:5]:
-            news.append({
-                "title": entry.title,
-                "link": entry.link
-            })
-    return news
+def generate_summary(text):
+    """
+    توليد وصف جذاب باستخدام AI مجاني
+    يمكنك لاحقًا استخدام أي API مجاني للذكاء الاصطناعي
+    الآن سنكتفي بتوليد نص قصير عشوائي للتجربة
+    """
+    words = text.split()[:20]  # أخذ أول 20 كلمة فقط كموجز
+    return " ".join(words) + "…"
 
 # ==========================
-# نشر الأخبار
-# ==========================
-def post_news():
+def fetch_news():
     global posted
-    news_list = get_news()
-
-    for item in news_list:
-        key = item["title"].lower()
-        if key not in posted:
-            try:
-                message = f"{add_emoji()} {item['title']}"
+    for feed in RSS_FEEDS:
+        d = feedparser.parse(feed)
+        for entry in d.entries[:5]:  # أول 5 أخبار فقط للتجربة
+            key = entry.title.lower()
+            if key in posted:
+                continue
+            # نص جذاب
+            message = f"{add_emoji()} {entry.title}\n\n{generate_summary(entry.get('summary', entry.title))}"
+            # نشر مع صورة إن وجدت
+            if 'media_content' in entry:
+                img_url = entry.media_content[0]['url']
+                try:
+                    bot.send_photo(CHANNEL, img_url, caption=message)
+                    print("🖼️ خبر مع صورة نشر:", entry.title)
+                except:
+                    bot.send_message(CHANNEL, message)
+                    print("📄 خبر بدون صورة نشر:", entry.title)
+            else:
                 bot.send_message(CHANNEL, message)
-                print("✅ News posted:", item['title'])
-
-                posted.append(key)
-                if len(posted) > 200:
-                    posted = posted[-200:]
-                save_data(posted)
-                break
-            except Exception as e:
-                print("Error posting:", e)
+                print("📄 خبر بدون صورة نشر:", entry.title)
+            # تخزين لمنع التكرار
+            posted.append(key)
+            if len(posted) > 200:
+                posted = posted[-200:]
+            save_posted(posted)
 
 # ==========================
-# الجدولة
-# ==========================
-schedule.every(3).minutes.do(post_news)  # كل 3 دقائق
-# يمكنك تعديل الوقت حسب رغبتك
+print("🚀 Arabic News Bot Running…")
 
-print("🚀 Lightweight News Bot Running...")
-
-post_news()  # نشر أولي عند التشغيل
-
+# تشغيل مباشر كل دقيقة للتحقق من الأخبار الجديدة
+import time
 while True:
-    schedule.run_pending()
-    time.sleep(10)
+    fetch_news()
+    time.sleep(60)
