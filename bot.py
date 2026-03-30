@@ -13,12 +13,12 @@ import random
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
 TRANSLATE_URL = os.environ.get("TRANSLATE_URL")
-SHORT_API = os.environ.get("SHORT_API")  # API اختصار الروابط
+SHORT_API = os.environ.get("SHORT_API")  # shrinkme.io أو exe.io API
 
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================
-# RSS
+# RSS الأخبار
 # ==========================
 RSS_FEEDS = [
     "http://feeds.bbci.co.uk/news/rss.xml",
@@ -27,7 +27,7 @@ RSS_FEEDS = [
 ]
 
 # ==========================
-# تخزين
+# التخزين لتجنب التكرار
 # ==========================
 DATA_FILE = "posted.json"
 
@@ -45,7 +45,15 @@ def save_data(data):
 posted = load_data()
 
 # ==========================
-# ترجمة
+# ملخص الخبر (Hook AI)
+# ==========================
+def summarize(text):
+    # استخدم API لترجمة + تلخيص، أو نسخة بسيطة الآن:
+    # النص الأصلي → 120 حرف تقريبًا
+    return text[:120] + "..." if len(text) > 120 else text
+
+# ==========================
+# ترجمة إلى العربية
 # ==========================
 def translate(text):
     try:
@@ -59,13 +67,7 @@ def translate(text):
         return text
 
 # ==========================
-# تلخيص بسيط (Hook)
-# ==========================
-def make_short(text):
-    return text[:120] + "..." if len(text) > 120 else text
-
-# ==========================
-# اختصار الرابط
+# اختصار الرابط فقط
 # ==========================
 def shorten(url):
     try:
@@ -90,7 +92,7 @@ def get_news():
     return news
 
 # ==========================
-# النشر
+# نشر الأخبار
 # ==========================
 def post_news():
     global posted
@@ -102,17 +104,14 @@ def post_news():
 
         if key not in posted:
             try:
-                short_text = make_short(item["title"])
-                ar = translate(short_text)
-                link = shorten(item["link"])
+                short_text = summarize(item["title"])
+                ar_text = translate(short_text)
+                short_link = shorten(item["link"])
 
-                message = f"""🔥 {ar}
-
-🔗 {link}"""
+                message = f"{ar_text}\n{short_link}"
 
                 bot.send_message(CHANNEL, message)
-
-                print("✅ Posted")
+                print("✅ News posted")
 
                 posted.append(key)
                 if len(posted) > 200:
@@ -125,11 +124,11 @@ def post_news():
                 print(e)
 
 # ==========================
-# جدولة
+# الجدولة
 # ==========================
 schedule.every(3).minutes.do(post_news)
 
-print("🚀 Short News Bot Running...")
+print("🚀 Smart News Bot Running...")
 
 post_news()
 
