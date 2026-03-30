@@ -1,5 +1,5 @@
 import telebot
-import requests
+import feedparser
 import schedule
 import time
 import os
@@ -9,76 +9,85 @@ import os
 # ==========================
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")  # @darkthu9hts
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================
+# مصادر الأخبار (RSS)
+# ==========================
+RSS_FEEDS = [
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "http://rss.cnn.com/rss/edition.rss",
+    "https://www.aljazeera.com/xml/rss/all.xml"
+]
+
+# ==========================
 # تخزين الأخبار المنشورة
 # ==========================
-posted_news = []
+posted_links = []
 
 # ==========================
-# جلب الأخبار
+# جلب الأخبار من RSS
 # ==========================
 def get_news():
-    url = f"https://newsapi.org/v2/top-headlines?language=en&pageSize=10&apiKey={NEWS_API_KEY}"
-    
-    try:
-        response = requests.get(url)
-        data = response.json()
-        
-        articles = data.get("articles", [])
-        news_list = []
+    news_items = []
 
-        for article in articles:
-            title = article.get("title")
-            source = article.get("source", {}).get("name", "")
-            
-            if title:
-                news = f"🌍 {title}\n📰 {source}"
-                news_list.append(news)
+    for feed_url in RSS_FEEDS:
+        feed = feedparser.parse(feed_url)
 
-        return news_list
+        for entry in feed.entries[:5]:  # آخر 5 أخبار من كل مصدر
+            title = entry.title
+            link = entry.link
 
-    except Exception as e:
-        print(f"❌ Error fetching news: {e}")
-        return []
+            news_items.append({
+                "title": title,
+                "link": link
+            })
+
+    return news_items
 
 # ==========================
-# نشر الأخبار بدون تكرار
+# نشر خبر بدون تكرار
 # ==========================
 def post_news():
     news_list = get_news()
 
     for news in news_list:
-        if news not in posted_news:
+        if news["link"] not in posted_links:
             try:
-                bot.send_message(CHANNEL, news)
+                message = f"""🌍 {news['title']}
+
+🔗 اقرأ المزيد:
+{news['link']}
+
+📰 @darkthu9hts"""
+
+                bot.send_message(CHANNEL, message)
+
                 print("✅ News posted")
 
-                posted_news.append(news)
+                posted_links.append(news["link"])
 
-                # الاحتفاظ بآخر 20 خبر فقط
-                if len(posted_news) > 20:
-                    posted_news.pop(0)
+                # الاحتفاظ بآخر 50 خبر
+                if len(posted_links) > 50:
+                    posted_links.pop(0)
 
-                break  # نشر خبر واحد فقط كل مرة
+                break  # ينشر خبر واحد فقط كل مرة
 
             except Exception as e:
-                print(f"❌ Error sending: {e}")
+                print(f"❌ Error: {e}")
 
 # ==========================
-# الجدولة (كل 5 دقائق)
+# الجدولة (كل 3 دقائق 🔥)
 # ==========================
-schedule.every(5).minutes.do(post_news)
+schedule.every(3).minutes.do(post_news)
 
 # ==========================
 # التشغيل
 # ==========================
-print("🚀 News Bot is running...")
+print("🚀 Ultra News Bot is running...")
 
-post_news()  # نشر فوري عند التشغيل
+post_news()  # نشر فوري
 
 while True:
     schedule.run_pending()
