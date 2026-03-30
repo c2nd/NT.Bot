@@ -36,7 +36,7 @@ posted = load_posted()
 
 # ==========================
 def emoji():
-    return random.choice(["🚨","🔥","📰","🌍","⚡"])
+    return random.choice(["🚨","🔥","⚡","🌍"])
 
 # ==========================
 # استخراج الصورة
@@ -48,7 +48,7 @@ def get_image(entry):
     return None
 
 # ==========================
-# استخراج النص الكامل
+# استخراج الخبر الكامل
 def get_full_article(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -68,20 +68,20 @@ def get_full_article(url):
                 if len(text) > 50:
                     paragraphs.append(text)
 
-        return "\n\n".join(paragraphs[:15])
+        return "\n\n".join(paragraphs[:12])
 
     except:
         return None
 
 # ==========================
-# Hook ذكي (تلخيص جذاب)
+# Hook احترافي (CNN Style)
 def generate_hook(text):
-    sentences = text.split(".")
+    words = text.split()
 
-    if len(sentences) > 2:
-        return sentences[0] + "..."
+    if len(words) > 25:
+        return " ".join(words[:20]) + "..."
     else:
-        return text[:150] + "..."
+        return text[:120] + "..."
 
 # ==========================
 def post_news():
@@ -98,13 +98,13 @@ def post_news():
 
             try:
                 full_text = get_full_article(entry.link)
-
                 if not full_text:
                     continue
 
                 hook = generate_hook(full_text)
                 img = get_image(entry)
 
+                # تنسيق احترافي
                 message = f"""
 {emoji()} {entry.title}
 
@@ -113,17 +113,17 @@ def post_news():
 {full_text}
 """
 
-                # إرسال مع صورة
+                # صورة + نص
                 if img:
                     bot.send_photo(CHANNEL, img, caption=message[:1000])
                 else:
                     bot.send_message(CHANNEL, message[:4000])
 
-                print("✅ خبر احترافي تم نشره")
+                print("✅ CNN Style News Posted")
 
                 posted.append(key)
-                if len(posted) > 200:
-                    posted = posted[-200:]
+                if len(posted) > 300:
+                    posted = posted[-300:]
 
                 save_posted(posted)
                 break
@@ -132,7 +132,7 @@ def post_news():
                 print("Error:", e)
 
 # ==========================
-print("🚀 Professional News Bot Running...")
+print("🚀 CNN Arabic Bot Running...")
 
 while True:
     post_news()
