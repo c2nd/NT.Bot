@@ -35,15 +35,11 @@ def save_posted(data):
 posted = load_posted()
 
 # ==========================
-def breaking_tag():
-    return random.choice([
-        "🚨 عاجل:",
-        "🔥 الآن:",
-        "⚡ تطورات:",
-        "🌍 خبر مهم:"
-    ])
+def emoji():
+    return random.choice(["🚨","🔥","⚡","🌍"])
 
 # ==========================
+# استخراج الصورة
 def get_image(entry):
     if "media_content" in entry:
         return entry.media_content[0]["url"]
@@ -52,6 +48,7 @@ def get_image(entry):
     return None
 
 # ==========================
+# استخراج الخبر الكامل
 def get_full_article(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -77,28 +74,14 @@ def get_full_article(url):
         return None
 
 # ==========================
-# Hook صحفي احترافي
+# Hook احترافي (CNN Style)
 def generate_hook(text):
     words = text.split()
 
-    if len(words) > 40:
-        return " ".join(words[:25]) + "..."
-    return text[:150] + "..."
-
-# ==========================
-def format_news(title, hook, body):
-    return f"""
-{breaking_tag()} {title}
-
-🧠 {hook}
-
-📌 التفاصيل:
-
-{body}
-
-—
-📰 تغطية إخبارية مستمرة
-"""
+    if len(words) > 25:
+        return " ".join(words[:20]) + "..."
+    else:
+        return text[:120] + "..."
 
 # ==========================
 def post_news():
@@ -114,24 +97,29 @@ def post_news():
                 continue
 
             try:
-                article = get_full_article(entry.link)
-                if not article:
+                full_text = get_full_article(entry.link)
+                if not full_text:
                     continue
 
-                hook = generate_hook(article)
+                hook = generate_hook(full_text)
                 img = get_image(entry)
 
-                message = format_news(entry.title, hook, article)
+                # تنسيق احترافي
+                message = f"""
+{emoji()} {entry.title}
 
-                # نشر مع صورة
+🧠 {hook}
+
+{full_text}
+"""
+
+                # صورة + نص
                 if img:
                     bot.send_photo(CHANNEL, img, caption=message[:1000])
                 else:
-                    # تقسيم الرسالة الطويلة
-                    for chunk in [message[i:i+4000] for i in range(0, len(message), 4000)]:
-                        bot.send_message(CHANNEL, chunk)
+                    bot.send_message(CHANNEL, message[:4000])
 
-                print("🔥 SUPER NEWS POSTED")
+                print("✅ CNN Style News Posted")
 
                 posted.append(key)
                 if len(posted) > 300:
@@ -144,7 +132,7 @@ def post_news():
                 print("Error:", e)
 
 # ==========================
-print("🚀 Ultra Media Bot Running...")
+print("🚀 CNN Arabic Bot Running...")
 
 while True:
     post_news()
