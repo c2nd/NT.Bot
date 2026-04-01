@@ -6,12 +6,18 @@ import time
 import json
 import os
 import random
+import re
 
 # ==========================
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
 
-bot = telebot.TeleBot(TOKEN)
+try:
+    CHANNEL = int(CHANNEL)
+except:
+    pass
+
+bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
 RSS_FEEDS = [
     "https://www.aljazeera.net/aljazeera/ar/feeds/all.xml",
@@ -35,69 +41,70 @@ def save_posted(data):
 posted = load_posted()
 
 # ==========================
-def breaking_tag():
-    return random.choice([
-        "🚨 عاجل:",
-        "🔥 الآن:",
-        "⚡ تطورات:",
-        "🌍 خبر مهم:"
-    ])
+def clean_text(text):
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\n+', '\n', text)
+    return text.strip()
 
 # ==========================
-def get_image(entry):
-    if "media_content" in entry:
-        return entry.media_content[0]["url"]
-    if "media_thumbnail" in entry:
-        return entry.media_thumbnail[0]["url"]
-    return None
-
-# ==========================
-def get_full_article(url):
+def extract_article(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
 
         paragraphs = []
+        seen = set()
 
         # BBC
         for p in soup.select("div[data-component='text-block'] p"):
-            paragraphs.append(p.get_text())
+            txt = clean_text(p.get_text())
+            if len(txt) > 50 and txt not in seen:
+                paragraphs.append(txt)
+                seen.add(txt)
 
-        # fallback الجزيرة
+        # الجزيرة
         if not paragraphs:
-            for p in soup.select("p"):
-                text = p.get_text()
-                if len(text) > 50:
-                    paragraphs.append(text)
+            for p in soup.select("article p"):
+                txt = clean_text(p.get_text())
+                if len(txt) > 50 and txt not in seen:
+                    paragraphs.append(txt)
+                    seen.add(txt)
 
-        return "\n\n".join(paragraphs[:12])
+        if not paragraphs:
+            return None
 
-    except:
+        article = "\n\n".join(paragraphs)
+
+        # ✂️ قطع ذكي للنهاية
+        article = article.strip()
+        if "." in article:
+            article = article.rsplit(".", 1)[0] + "."
+
+        return article
+
+    except Exception as e:
+        print("Extraction error:", e)
         return None
 
 # ==========================
-# Hook صحفي احترافي
 def generate_hook(text):
     words = text.split()
+    if len(words) > 30:
+        return " ".join(words[:20]) + "..."
+    return text[:120] + "..."
 
-    if len(words) > 40:
-        return " ".join(words[:25]) + "..."
-    return text[:150] + "..."
+# ==========================
+def emoji():
+    return random.choice(["🚨","🔥","⚡","🌍"])
 
 # ==========================
 def format_news(title, hook, body):
-    return f"""
-{breaking_tag()} {title}
+    return f"""*{emoji()} {title}*
 
 🧠 {hook}
 
-📌 التفاصيل:
-
-{body}
-
-—
-📰 تغطية إخبارية مستمرة
+> {body.replace("\n", "\n> ")}
 """
 
 # ==========================
@@ -114,24 +121,20 @@ def post_news():
                 continue
 
             try:
-                article = get_full_article(entry.link)
+                article = extract_article(entry.link)
                 if not article:
                     continue
 
                 hook = generate_hook(article)
-                img = get_image(entry)
-
                 message = format_news(entry.title, hook, article)
 
-                # نشر مع صورة
-                if img:
-                    bot.send_photo(CHANNEL, img, caption=message[:1000])
-                else:
-                    # تقسيم الرسالة الطويلة
-                    for chunk in [message[i:i+4000] for i in range(0, len(message), 4000)]:
-                        bot.send_message(CHANNEL, chunk)
+                # تقسيم آمن
+                chunks = [message[i:i+4000] for i in range(0, len(message), 4000)]
 
-                print("🔥 SUPER NEWS POSTED")
+                for c in chunks:
+                    bot.send_message(CHANNEL, c)
+
+                print("✅ CLEAN NEWS POSTED")
 
                 posted.append(key)
                 if len(posted) > 300:
@@ -144,7 +147,7 @@ def post_news():
                 print("Error:", e)
 
 # ==========================
-print("🚀 Ultra Media Bot Running...")
+print("🚀 CLEAN BOT RUNNING...")
 
 while True:
     post_news()
